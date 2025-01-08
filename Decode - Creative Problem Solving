@@ -1,0 +1,29 @@
+'''Takes in the URL for such a Google Doc as an argument, 
+retrieves and parses the data in the document, and prints the grid of characters.
+ When printed in a fixed-width font, the characters in the grid will form a graphic showing a sequence of uppercase letters, 
+ which is the secret message.
+-The document specifies the Unicode characters in the grid, along with the x- and y-coordinates of each character.
+-The minimum possible value of these coordinates is 0. There is no maximum possible value, so the grid can be arbitrarily large.
+-Any positions in the grid that do not have a specified character should be filled with a space character.
+-You can assume the document will always have the same format as the example document linked above.'''
+
+# -*- coding: utf-8 -*-
+from bs4 import BeautifulSoup
+import requests
+
+def decode(doc_link):
+    doc_request = requests.get(doc_link)    #Make request to google doc
+    raw_html = doc_request.text
+    soup = BeautifulSoup(raw_html,"lxml")   #Convert HTML to BeautifulSoup object
+    all_paragraphs = [p.text for p in soup.find_all("p")]   #Get a list of each 'paragraph'
+    data = all_paragraphs[5:-1]  #Skip the headers and whitespace at the top and bottom
+    table = [(data[i], data[i+1], data[i+2]) for i in range(0, len(data), 3)]   #Group into tuples of (x-coordinate, Character, y-coordinate)
+    width = max(int(row[0]) for row in table) + 1  #Set Grid Dimensions
+    height = max(int(row[2]) for row in table) + 1  
+    grid = [[" " for _ in range(width)] for _ in range(height)] #Initialize a grid according to dimensions
+    for x, char, y in table:    #Place each Unicode character in its grid location
+            grid[int(height)-int(y)-1][int(x)] = char   #Invert Y coordinate
+    for row in grid:            
+            print("".join(row)) #Print grid by row
+
+decode("https://docs.google.com/document/d/e/2PACX-1vQGUck9HIFCyezsrBSnmENk5ieJuYwpt7YHYEzeNJkIb9OSDdx-ov2nRNReKQyey-cwJOoEKUhLmN9z/pub")
