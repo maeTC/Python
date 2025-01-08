@@ -1,0 +1,121 @@
+'''
+Click the link below to view my project presentation
+https://docs.google.com/presentation/d/1mYMGsMFGPuwjeqt0phg0_RYSdmtRGJNJgPyUJXUF4so/edit#slide=id.g2d5bd68eada_0_310
+'''
+
+
+import pandas as pd
+import statsmodels.api as sm
+from sklearn.preprocessing import StandardScaler
+import pandas as pd
+import sklearn
+import numpy as np
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn. multioutput import MultiOutputRegressor 
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import KFold
+from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+
+#read data
+spend_df=pd.read_csv('/Users/maeconuel/Desktop/Model CSVs/bkw_spend.csv')
+spend_case_A=pd.read_csv('/Users/maeconuel/Desktop/Model CSVs/BKW_caseA.csv')
+spend_case_B=pd.read_csv('/Users/maeconuel/Desktop/Model CSVs/BKW_caseB.csv')
+target_df=pd.read_csv('/Users/maeconuel/Desktop/Model CSVs/bkw_target.csv', skiprows=0)
+
+#fill NaN values with 0s
+spend_df.fillna(0, inplace=True)
+spend_case_A.fillna(0, inplace=True)
+spend_case_B.fillna(0, inplace=True)
+target_df.fillna(0, inplace=True)
+
+#Show basic Linear Regression Results: WL vs Sessions
+X = spend_df['SUM of WL']
+Y = target_df['Sessions']
+X = sm.add_constant(X)
+lin_model = sm.OLS(Y, X).fit() 
+print('Linear correlation WL vs Sessions\n' ,lin_model.summary())
+
+'''
+#tune hyperparams
+params = {'learning_rate': 0.01, 'max_depth': 7, 'min_samples_leaf': 5, 'min_samples_split': 10,'n_estimators': 200, 'subsample': 0.8}
+gbr = GradientBoostingRegressor(**params)
+model = MultiOutputRegressor(gbr)
+'''
+#define model and features
+model = MultiOutputRegressor(GradientBoostingRegressor())
+features = spend_df.iloc[:,1:]
+caseA_features = spend_case_A.iloc[:,1:]
+caseB_features =spend_case_B.iloc[:,1:]
+scaler = StandardScaler()
+features_scaled = scaler.fit_transform(features)
+caseA_scaled = scaler.fit_transform(caseA_features)
+caseB_scaled = scaler.fit_transform(caseB_features)
+KPIs = target_df.iloc[:,1:]
+
+#fit based on actuals and predict
+model.fit(features_scaled, KPIs)
+predict = model.predict(features_scaled)
+
+
+print("BKW Actual Predicted Site Visitation: ", np.sum(predict[:,4]))
+print(" = $", 16347116/np.sum(predict[:,4]), " per site visit")
+
+caseA_predict = model.predict(caseA_scaled)
+print("Predicted site visitation without DMD buys (Case A)", np.sum(caseA_predict[:,4]))
+#print(" = $", 16262637.38/np.sum(caseA_predict[:,4]), " per site visit")
+caseB_predict = model.predict(caseB_scaled)
+print("Predicted site visitation without DMD spend reallocated (Case B)", np.sum(caseB_predict[:,4]))
+
+#Feature Importance
+base_estimator = model.estimators_[0]
+importance = base_estimator.feature_importances_
+#print('\nImportance of each channel', importance)
+
+#CALCULATE MODEL SIG FOR ACTUALS
+print("\nBased on Actuals:\n")
+all_r2 = r2_score(KPIs,predict)
+print('Overall Model Rsquared: ', all_r2)
+GL_r2 = r2_score(KPIs['SUM of GL'],predict[:,0])
+print("\nR-Squared Score for GLs: ", GL_r2)
+#calculate R squared scores for each KPI
+QL_r2 = r2_score(KPIs['SUM of QL'],predict[:,1])
+print("\nR-Squared Score for QLs: ", QL_r2)
+BA_r2 = r2_score(KPIs['SUM of BA'],predict[:,1])
+print("\nR-Squared Score for BAs: ", BA_r2)
+Ses_r2 = r2_score(KPIs['Sessions'],predict[:,4])
+print("\nR-Squared Score for Sessionss: ", Ses_r2)
+mae = np.sqrt(mean_absolute_error(KPIs['Sessions'], predict[:,4]))
+print("\nMAE for Sessions: ", mae)
+
+#CALCULATED MODEL SIG FOR CASE A
+print("\nBased on Case A:\n")
+A_GL_r2 = r2_score(KPIs['SUM of GL'],caseA_predict[:,0])
+print("\nR-Squared Score for GLs: ", A_GL_r2)
+#calculate R squared scores for each KPI
+A_QL_r2 = r2_score(KPIs['SUM of QL'],caseA_predict[:,1])
+print("\nR-Squared Score for QLs: ", QL_r2)
+A_BA_r2 = r2_score(KPIs['SUM of BA'],caseA_predict[:,1])
+print("\nR-Squared Score for BAs: ", BA_r2)
+A_Ses_r2 = r2_score(KPIs['Sessions'],caseA_predict[:,4])
+print("\nR-Squared Score for Sessions: ", Ses_r2)
+A_mae = np.sqrt(mean_absolute_error(KPIs['Sessions'], caseA_predict[:,4]))
+print("\nMAE for Sessions: ", mae)
+
+#CALCULATE MODEL SIG for CASE B
+print("\nBased on Case B:\n")
+B_GL_r2 = r2_score(KPIs['SUM of GL'],caseB_predict[:,0])
+print("\nR-Squared Score for GLs: ", B_GL_r2)
+#calculate R squared scores for each KPI
+B_QL_r2 = r2_score(KPIs['SUM of QL'],caseB_predict[:,1])
+print("\nR-Squared Score for QLs: ", B_QL_r2)
+B_BA_r2 = r2_score(KPIs['SUM of BA'],caseB_predict[:,1])
+print("\nR-Squared Score for BAs: ", B_BA_r2)
+B_Ses_r2 = r2_score(KPIs['Sessions'],caseB_predict[:,4])
+print("\nR-Squared Score for Sessionss: ", B_Ses_r2)
+B_mae = np.sqrt(mean_absolute_error(KPIs['Sessions'], caseB_predict[:,4]))
+print("\nMAE for Sessions: ", B_mae)
